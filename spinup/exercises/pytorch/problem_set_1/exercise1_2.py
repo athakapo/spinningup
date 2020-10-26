@@ -38,6 +38,10 @@ def mlp(sizes, activation, output_activation=nn.Identity):
     #   YOUR CODE HERE    #
     #                     #
     #######################
+    net = nn.Sequential()
+    for i in range(sizes):
+        net.add_module(nn.Linear(sizes(i), sizes(i + 1)))
+
     pass
 
 class DiagonalGaussianDistribution:

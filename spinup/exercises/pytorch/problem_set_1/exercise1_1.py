@@ -13,6 +13,8 @@ likelihoods of those samples.
 
 """
 
+EPS=1e-8
+
 def gaussian_likelihood(x, mu, log_std):
     """
     Args:
@@ -28,7 +30,9 @@ def gaussian_likelihood(x, mu, log_std):
     #   YOUR CODE HERE    #
     #                     #
     #######################
-    return torch.zeros(1)
+    log_pi = -(torch.pow((x - mu) / torch.exp(log_std)+EPS, 2) + 2 * log_std + np.log(2 * np.pi))/2
+
+    return torch.sum(log_pi, dim=1)  #pre_sum.sum(axis=-1)
 
 
 if __name__ == '__main__':
