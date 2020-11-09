@@ -5,6 +5,7 @@ Some simple logging functionality, inspired by rllab's logging.
 Logs to a tab-separated-values file (path/to/output_directory/progress.txt)
 
 """
+import datetime
 import json
 import joblib
 import shutil
@@ -13,6 +14,8 @@ import tensorflow as tf
 import torch
 import os.path as osp, time, atexit, os
 import warnings
+
+from spinup.utils.ModifiedTensorBoard import ModifiedTensorBoard
 from spinup.utils.mpi_tools import proc_id, mpi_statistics_scalar
 from spinup.utils.serialization_utils import convert_json
 
@@ -111,6 +114,14 @@ class Logger:
         self.log_headers = []
         self.log_current_row = {}
         self.exp_name = exp_name
+
+        # Tensorboard related
+        #self.aggregate_stats_every = AGGREGATE_STATS_EVERY
+        #self.display_progress_every = DISPLAY_PROGRESS_EVERY
+        #value = datetime.datetime.fromtimestamp(time.time())
+        #self.tensorboard_path = f"spinup/tensorboard/{env_name}-{solver}-{value.strftime('%Y-%m-%d_%H-%M-%S')}"
+        #self.tensorboard = ModifiedTensorBoard(log_dir=self.tensorboard_path)
+
 
     def log(self, msg, color='green'):
         """Print a colorized message to stdout."""

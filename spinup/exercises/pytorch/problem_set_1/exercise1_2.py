@@ -16,6 +16,7 @@ so make sure to complete that exercise before beginning this one.
 
 """
 
+
 def mlp(sizes, activation, output_activation=nn.Identity):
     """
     Build a multi-layer perceptron in PyTorch.
@@ -38,11 +39,13 @@ def mlp(sizes, activation, output_activation=nn.Identity):
     #   YOUR CODE HERE    #
     #                     #
     #######################
-    net = nn.Sequential()
-    for i in range(sizes):
-        net.add_module(nn.Linear(sizes(i), sizes(i + 1)))
+    layers = []
+    for i in range(len(sizes)-1):
+        act = activation if i < len(sizes)-1 else output_activation
+        layers += [nn.Linear(sizes[i], sizes[i+1]), act()]
 
-    pass
+    return nn.Sequential(*layers)
+
 
 class DiagonalGaussianDistribution:
 
@@ -61,15 +64,18 @@ class DiagonalGaussianDistribution:
         #   YOUR CODE HERE    #
         #                     #
         #######################
-        pass
 
-    #================================(Given, ignore)==========================================#
+        m = torch.normal(self.mu, torch.exp(self.log_std))
+
+        return m # self.mu + torch.exp(self.log_std) * torch.randn_like(self.mu)
+
+    # ================================(Given, ignore)==========================================#
     def log_prob(self, value):
         return exercise1_1.gaussian_likelihood(value, self.mu, self.log_std)
 
     def entropy(self):
         return 0.5 + 0.5 * np.log(2 * np.pi) + self.log_std.sum(axis=-1)
-    #=========================================================================================#
+    # =========================================================================================#
 
 
 class MLPGaussianActor(nn.Module):
@@ -89,11 +95,12 @@ class MLPGaussianActor(nn.Module):
         #   YOUR CODE HERE    #
         #                     #
         #######################
-        # self.log_std = 
-        # self.mu_net = 
-        pass 
+        log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
+        self.mu_net = mlp([obs_dim] + list(hidden_sizes) + [act_dim], activation)
 
-    #================================(Given, ignore)==========================================#
+        # ================================(Given, ignore)==========================================#
+
     def forward(self, obs, act=None):
         mu = self.mu_net(obs)
         pi = DiagonalGaussianDistribution(mu, self.log_std)
@@ -101,8 +108,7 @@ class MLPGaussianActor(nn.Module):
         if act is not None:
             logp_a = pi.log_prob(act)
         return pi, logp_a
-    #=========================================================================================#
-
+    # =========================================================================================#
 
 
 if __name__ == '__main__':
@@ -119,20 +125,20 @@ if __name__ == '__main__':
     import psutil
     import time
 
-    logdir = "/tmp/experiments/%i"%int(time.time())
+    logdir = "/tmp/experiments/%i" % int(time.time())
 
     ActorCritic = partial(exercise1_2_auxiliary.ExerciseActorCritic, actor=MLPGaussianActor)
-    
-    ppo(env_fn = lambda : gym.make('InvertedPendulum-v2'),
+
+    ppo(env_fn=lambda: gym.make('InvertedPendulum-v2'),
         actor_critic=ActorCritic,
         ac_kwargs=dict(hidden_sizes=(64,)),
         steps_per_epoch=4000, epochs=20, logger_kwargs=dict(output_dir=logdir))
 
     # Get scores from last five epochs to evaluate success.
-    data = pd.read_table(os.path.join(logdir,'progress.txt'))
+    data = pd.read_table(os.path.join(logdir, 'progress.txt'))
     last_scores = data['AverageEpRet'][-5:]
 
     # Your implementation is probably correct if the agent has a score >500,
     # or if it reaches the top possible score of 1000, in the last five epochs.
-    correct = np.mean(last_scores) > 500 or np.max(last_scores)==1e3
+    correct = np.mean(last_scores) > 500 or np.max(last_scores) == 1e3
     print_result(correct)

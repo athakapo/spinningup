@@ -32,7 +32,7 @@ def gaussian_likelihood(x, mu, log_std):
     #######################
     log_pi = -(torch.pow((x - mu) / torch.exp(log_std)+EPS, 2) + 2 * log_std + np.log(2 * np.pi))/2
 
-    return torch.sum(log_pi, dim=1)  #pre_sum.sum(axis=-1)
+    return log_pi.sum(axis=-1) #torch.sum(log_pi, dim=1)  #pre_sum.sum(axis=-1)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+from spinup.exercises.pytorch.problem_set_1 import exercise1_2_auxiliary
+
 EPS=1e-8
 
 def mlp(sizes, activation, output_activation=nn.Identity):
@@ -47,3 +49,5 @@ class MLPGaussianActor(nn.Module):
         if act is not None:
             logp_a = pi.log_prob(act)
         return pi, logp_a
+
+
