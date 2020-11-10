@@ -14,7 +14,6 @@ import tensorflow as tf
 import torch
 import os.path as osp, time, atexit, os
 import warnings
-
 from spinup.utils.ModifiedTensorBoard import ModifiedTensorBoard
 from spinup.utils.mpi_tools import proc_id, mpi_statistics_scalar
 from spinup.utils.serialization_utils import convert_json
@@ -114,13 +113,6 @@ class Logger:
         self.log_headers = []
         self.log_current_row = {}
         self.exp_name = exp_name
-
-        # Tensorboard related
-        #self.aggregate_stats_every = AGGREGATE_STATS_EVERY
-        #self.display_progress_every = DISPLAY_PROGRESS_EVERY
-        #value = datetime.datetime.fromtimestamp(time.time())
-        #self.tensorboard_path = f"spinup/tensorboard/{env_name}-{solver}-{value.strftime('%Y-%m-%d_%H-%M-%S')}"
-        #self.tensorboard = ModifiedTensorBoard(log_dir=self.tensorboard_path)
 
 
     def log(self, msg, color='green'):
@@ -311,6 +303,43 @@ class Logger:
         self.log_current_row.clear()
         self.first_row=False
 
+
+class TensorBoardLogger():
+    def __init__(self, logger_tb):
+        self._set_up_tensorboard(logger_tb['env'], logger_tb['solver'], logger_tb['aggregate_stats'])
+
+    def _set_up_tensorboard(self, env_name, solver, aggregate_stats_every):
+        # Tensorboard related
+        self.aggregate_stats_every = aggregate_stats_every
+        value = datetime.datetime.fromtimestamp(time.time())
+        self.tensorboard_path = f"../tensorboard/{env_name}-{solver}-{value.strftime('%Y-%m-%d_%H-%M-%S')}"
+        try:
+            os.makedirs(self.tensorboard_path)
+        except OSError:
+            print("Creation of the directory %s failed" % self.tensorboard_path)
+        else:
+            print("Successfully created the directory %s" % self.tensorboard_path)
+        self.tensorboard = ModifiedTensorBoard(log_dir=self.tensorboard_path)
+        self.total_rewards = []
+        self.episode_id = 0
+
+    def update_tensorboard(self, episode_reward):
+        self.episode_id += 1
+        self.tensorboard.step = self.episode_id
+
+        # Append episode reward to a list and log stats (every given number of episodes)
+        self.total_rewards.append(episode_reward)
+        self.tensorboard.update_stats(Return=episode_reward)
+
+        average_reward = sum(self.total_rewards[-self.aggregate_stats_every:]) / len(self.total_rewards[-self.aggregate_stats_every:])
+        min_reward = min(self.total_rewards[-self.aggregate_stats_every:])
+        max_reward = max(self.total_rewards[-self.aggregate_stats_every:])
+        std_reward = np.std(self.total_rewards[-self.aggregate_stats_every:])
+        self.tensorboard.update_stats(Average_return=average_reward, Min_return=min_reward, Max_return=max_reward,
+                                      STD_return=std_reward)
+
+
+
 class EpochLogger(Logger):
     """
     A variant of Logger tailored for tracking average values over epochs.
@@ -340,6 +369,7 @@ class EpochLogger(Logger):
         super().__init__(*args, **kwargs)
         self.epoch_dict = dict()
 
+
     def store(self, **kwargs):
         """
         Save something into the epoch_logger's current state.
@@ -351,6 +381,7 @@ class EpochLogger(Logger):
             if not(k in self.epoch_dict.keys()):
                 self.epoch_dict[k] = []
             self.epoch_dict[k].append(v)
+
 
     def log_tabular(self, key, val=None, with_min_and_max=False, average_only=False):
         """

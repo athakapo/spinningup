@@ -4,7 +4,7 @@ from torch.optim import Adam
 import gym
 import time
 import spinup.algos.pytorch.vpg.core as core
-from spinup.utils.logx import EpochLogger
+from spinup.utils.logx import EpochLogger, TensorBoardLogger
 from spinup.utils.mpi_pytorch import setup_pytorch_for_mpi, sync_params, mpi_avg_grads
 from spinup.utils.mpi_tools import mpi_fork, mpi_avg, proc_id, mpi_statistics_scalar, num_procs
 
@@ -88,7 +88,7 @@ class VPGBuffer:
 def vpg(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(),  seed=0, 
         steps_per_epoch=4000, epochs=50, gamma=0.99, pi_lr=3e-4,
         vf_lr=1e-3, train_v_iters=80, lam=0.97, max_ep_len=1000,
-        logger_kwargs=dict(), save_freq=10):
+        logger_kwargs=dict(), logger_tb_args=dict(), save_freq=10):
     """
     Vanilla Policy Gradient 
 
@@ -182,6 +182,10 @@ def vpg(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(),  seed=0,
     # Set up logger and save configuration
     logger = EpochLogger(**logger_kwargs)
     logger.save_config(locals())
+
+    # Set up Tensorboard logger
+    if logger_tb_args['enable']:
+        logger_tb = TensorBoardLogger(logger_tb_args)
 
     # Random seed
     seed += 10000 * proc_id()
@@ -300,6 +304,8 @@ def vpg(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(),  seed=0,
                 if terminal:
                     # only save EpRet / EpLen if trajectory finished
                     logger.store(EpRet=ep_ret, EpLen=ep_len)
+                    if logger_tb_args['enable']:
+                        logger_tb.update_tensorboard(ep_ret)
                 o, ep_ret, ep_len = env.reset(), 0, 0
 
 
@@ -335,8 +341,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--cpu', type=int, default=4)
     parser.add_argument('--steps', type=int, default=4000)
-    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--epochs', type=int, default=30000)
     parser.add_argument('--exp_name', type=str, default='vpg')
+    parser.add_argument('--tensorboard', type=bool, default=True)
+    parser.add_argument('--aggregate_stats', type=int, default=100)
     args = parser.parse_args()
 
     #mpi_fork(args.cpu)  # run parallel code with mpi
@@ -344,7 +352,14 @@ if __name__ == '__main__':
     from spinup.utils.run_utils import setup_logger_kwargs
     logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed)
 
+    logger_tb_args = dict()
+    logger_tb_args['enable'] = args.tensorboard
+    if args.tensorboard:
+        logger_tb_args['env'] = args.env
+        logger_tb_args['solver'] = args.exp_name
+        logger_tb_args['aggregate_stats'] = args.aggregate_stats
+
     vpg(lambda : gym.make(args.env), actor_critic=core.MLPActorCritic,
         ac_kwargs=dict(hidden_sizes=[args.hid]*args.l), gamma=args.gamma, 
         seed=args.seed, steps_per_epoch=args.steps, epochs=args.epochs,
-        logger_kwargs=logger_kwargs)
+        logger_kwargs=logger_kwargs, logger_tb_args=logger_tb_args)

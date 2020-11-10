@@ -10,3 +10,5 @@ data/
 .vscode/
 .DS_Store
 _build/
+spinup/algos/pytorch/tensorboard/
+
